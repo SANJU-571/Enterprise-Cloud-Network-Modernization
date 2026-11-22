@@ -1,0 +1,76 @@
+# Wireless design - two-floor HQ office
+# Survey tool: Hamina Wireless Planner (predictive) + post-deployment validation
+# Design target: RSSI >= -67 dBm everywhere, SNR >= 25 dB, no co-channel overlap
+# on 5 GHz. scripts/wifi_survey_report.py checks site-survey-results.csv
+# against these targets.
+
+design_targets:
+  min_rssi_dbm: -67
+  min_snr_db: 25
+  max_channel_utilisation_pct: 50
+  bands: ["2.4GHz", "5GHz"]
+
+ssids:
+  - name: STRATOS-CORP
+    vlan: 10
+    security: WPA3-Enterprise
+    auth: 802.1X (EAP-TLS) via RADIUS 10.10.100.20
+    band_steering: true
+    qos: WMM, voice/video prioritised
+  - name: STRATOS-OPS
+    vlan: 50
+    security: WPA3-Enterprise
+    auth: 802.1X (PEAP-MSCHAPv2) via RADIUS 10.10.100.20
+    band_steering: true
+  - name: STRATOS-GUEST
+    vlan: 60
+    security: WPA3-Personal (SAE) + captive portal
+    client_isolation: true
+    bandwidth_limit_mbps: 10
+
+rf_profile:
+  5ghz:
+    channel_width_mhz: 40
+    channels: [36, 40, 44, 48, 52, 56, 60, 64, 100, 104, 108, 112] # DFS allowed
+    tx_power_dbm: { min: 8, max: 17 }
+  2_4ghz:
+    channel_width_mhz: 20
+    channels: [1, 6, 11]
+    tx_power_dbm: { min: 5, max: 11 }
+  min_bitrate_mbps: 12
+  rogue_ap_detection: true
+  wids: true
+
+floors:
+  - floor: 1
+    layout_change: "Brick partition walls replaced with drywall"
+    aps:
+      - id: F1-AP1
+        model: Meraki MR46   # 4x4:4 MU-MIMO, Wi-Fi 6
+        zone: center-left
+        mount: ceiling, 2.7 m
+      - id: F1-AP2
+        model: Meraki MR46
+        zone: center-right
+        mount: ceiling, 2.7 m
+        added_after_survey: true
+    result: "Mostly green heatmap, no dead zones; left wing needs Tx tuning"
+
+  - floor: 2
+    layout_change: "Open plan with glass meeting-room walls"
+    aps:
+      - id: F2-AP1
+        model: Meraki MR36   # 2x2:2 MU-MIMO, Wi-Fi 6
+        zone: bottom-center
+        mount: ceiling, 2.7 m
+      - id: F2-AP2
+        model: Meraki MR36
+        zone: top-left
+        mount: ceiling, 2.7 m
+        added_after_survey: true
+    result: "Uniform coverage; top-left -70 dBm before second AP was added"
+
+post_deployment:
+  - Revalidate with a spectrum analyser (NetSpot / Wi-Fi Analyzer)
+  - Confirm DFS channel availability (no radar events) over 7 days
+  - Re-survey after furniture move-in

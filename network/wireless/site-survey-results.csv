@@ -1,0 +1,6 @@
+floor,area,ap_model,avg_rssi_dbm,coverage_quality,obstacles,recommendation
+1,Center Hall,Meraki MR46,-60,Excellent,Drywall,Add one more AP
+1,Offices Left,Meraki MR46,-67,Good,Drywall,Slightly raise Tx power
+2,Top Left,Meraki MR36,-70,Moderate,Drywall + glass wall,Add one more AP
+2,Right Wing,Meraki MR36,-62,Excellent,Drywall + glass wall,Optimal
+2,Bottom Center,Meraki MR36,-65,Good,Drywall + glass wall,Monitor user density

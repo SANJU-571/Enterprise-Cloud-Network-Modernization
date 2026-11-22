@@ -1,0 +1,99 @@
+# Single source of truth for the campus VLAN / IP plan.
+# scripts/validate_network.py checks this file for overlaps, gateway
+# placement and HSRP consistency, and CI runs it on every push.
+#
+# Campus summary : 10.10.0.0/16  (advertised to AWS over BGP as one prefix)
+# AWS prod VPC   : 10.20.0.0/16
+# AWS DR VPC     : 10.30.0.0/16
+# HSRP           : .1 = virtual IP, .2 = CORE-SW1 (active), .3 = CORE-SW2 (standby)
+
+site: HQ-TORONTO
+summary: 10.10.0.0/16
+hsrp:
+  version: 2
+  active: CORE-SW1
+  standby: CORE-SW2
+  active_priority: 110
+  standby_priority: 100
+
+vlans:
+  - id: 10
+    name: SALES
+    subnet: 10.10.10.0/24
+    hosts: 90
+    wireless: true
+    dhcp: true
+    notes: Sales floor, wired + corporate SSID
+
+  - id: 20
+    name: FINANCE
+    subnet: 10.10.20.0/24
+    hosts: 45
+    wireless: false
+    dhcp: true
+    notes: PCI-scoped; ACL restricts access to the finance app servers only
+
+  - id: 30
+    name: ADMIN
+    subnet: 10.10.30.0/24
+    hosts: 40
+    wireless: false
+    dhcp: true
+    notes: HR and administration
+
+  - id: 40
+    name: IT
+    subnet: 10.10.40.0/24
+    hosts: 35
+    wireless: false
+    dhcp: true
+    notes: Only VLAN allowed SSH to network gear and AWS app tier
+
+  - id: 50
+    name: OPERATIONS
+    subnet: 10.10.50.0/24
+    hosts: 70
+    wireless: true
+    dhcp: true
+    notes: Operations / dev teams
+
+  - id: 60
+    name: GUEST
+    subnet: 10.10.60.0/24
+    hosts: 120
+    wireless: true
+    dhcp: true
+    notes: Internet only - denied to every RFC1918 range at the firewall
+
+  - id: 99
+    name: MGMT
+    subnet: 10.10.99.0/24
+    hosts: 30
+    wireless: false
+    dhcp: false
+    notes: Switch/AP/WLC management, out-of-band reachable from IT only
+
+  - id: 100
+    name: SERVERS
+    subnet: 10.10.100.0/24
+    hosts: 25
+    wireless: false
+    dhcp: false
+    notes: AD/DNS/DHCP/RADIUS, NAS, monitoring stack
+
+servers:
+  dhcp_primary: 10.10.100.11
+  dhcp_secondary: 10.10.100.12
+  dns: [10.10.100.11, 10.10.100.12]
+  radius: 10.10.100.20
+  syslog: 10.10.100.30
+  prometheus: 10.10.100.40
+  nas: 10.10.100.50
+
+transit:
+  - name: CORE-SW1 <-> EDGE-FW
+    subnet: 10.10.255.0/30
+  - name: CORE-SW2 <-> EDGE-FW
+    subnet: 10.10.255.4/30
+  - name: EDGE-FW <-> ISR
+    subnet: 10.10.255.8/30
