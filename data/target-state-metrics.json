@@ -1,0 +1,11 @@
+{
+  "description": "Design target state the remediation plan is sized for (not a measurement). Use as the acceptance criteria for load tests and DR drills.",
+  "metrics": {
+    "uptime_pct": 99.9,
+    "response_time_p95_ms": 160,
+    "bandwidth_monthly_gb": 10500,
+    "interregion_latency_ms": 60,
+    "errors_per_day": 5,
+    "lb_capacity_pct": 65
+  }
+}

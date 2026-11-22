@@ -1,0 +1,15 @@
+{
+  "description": "Baseline measured before remediation (performance review input data)",
+  "window": "last 30 days (uptime, errors), last 7 days (response time, latency), monthly (bandwidth)",
+  "metrics": {
+    "uptime_pct": 98.3,
+    "response_time_p95_ms": 220,
+    "bandwidth_monthly_gb": 10500,
+    "bandwidth_peak_day_gb": 600,
+    "bandwidth_avg_day_gb": 350,
+    "interregion_latency_ms": 95,
+    "errors_per_day": 8.2,
+    "errors_total_30d": 245,
+    "lb_capacity_pct": 95
+  }
+}
