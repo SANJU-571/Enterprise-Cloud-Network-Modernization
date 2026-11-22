@@ -1,0 +1,29 @@
+name: Weekly SLA & capacity report
+
+on:
+  schedule:
+    - cron: "0 13 * * 1" # Mondays 08:00 Toronto (EST)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pyyaml
+      - name: SLA report
+        run: |
+          echo "## SLA status" >> "$GITHUB_STEP_SUMMARY"
+          python scripts/sla_report.py data/baseline-metrics.json --format markdown >> "$GITHUB_STEP_SUMMARY" || true
+      - name: Capacity forecast
+        run: |
+          echo '## Capacity forecast' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          python scripts/capacity_forecast.py data/monthly-usage.csv >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  terraform:
+    name: Terraform fmt / validate / lint
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        env: [prod, dr]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+
+      - name: terraform fmt
+        run: terraform fmt -check -recursive -diff terraform/
+
+      - name: terraform init (no backend)
+        working-directory: terraform/environments/${{ matrix.env }}
+        run: terraform init -backend=false -input=false
+
+      - name: terraform validate
+        working-directory: terraform/environments/${{ matrix.env }}
+        run: terraform validate
+
+      - uses: terraform-linters/setup-tflint@v4
+      - name: tflint
+        working-directory: terraform
+        run: |
+          tflint --init
+          tflint --recursive --minimum-failure-severity=error
+
+  security-scan:
+    name: IaC security scan (Checkov)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: terraform/
+          framework: terraform
+          soft_fail: true
+          output_format: cli
+
+  python:
+    name: Python lint + tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements-dev.txt
+      - run: ruff check .
+      - run: pytest --cov=scripts --cov=app --cov-report=term-missing
+
+  network:
+    name: Network plan + SLA checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pyyaml
+      - name: Validate VLAN / HSRP / VTY plan
+        run: python scripts/validate_network.py
+      - name: Target state meets every SLA
+        run: python scripts/sla_report.py data/target-state-metrics.json
+      - name: Baseline gap report (informational)
+        run: python scripts/sla_report.py data/baseline-metrics.json --format markdown >> "$GITHUB_STEP_SUMMARY" || true

@@ -1,0 +1,40 @@
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+*.tfplan
+tfplan
+crash.log
+.terraform.lock.hcl
+override.tf
+override.tf.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
+# Secrets / keys
+*.pem
+*.key
+*.crt
+monitoring/secrets/
+.env
+.env.*
+
+# Results / logs
+*.log
+results*.csv
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
