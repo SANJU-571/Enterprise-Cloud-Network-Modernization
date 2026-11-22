@@ -1,0 +1,62 @@
+#!/bin/bash
+# Bootstrap for application instances (Amazon Linux 2023)
+set -euo pipefail
+
+dnf update -y
+dnf install -y python3.11 python3.11-pip git amazon-cloudwatch-agent
+
+# --- Application -------------------------------------------------------------
+mkdir -p /opt/stratos-app
+cd /opt/stratos-app
+# Artifact is pushed to S3 by the CI pipeline; fall back to git for dev
+if aws s3 cp "s3://stratos-artifacts-${environment}/app/latest.tar.gz" app.tar.gz; then
+  tar -xzf app.tar.gz
+fi
+python3.11 -m pip install -r requirements.txt
+
+cat > /etc/systemd/system/stratos-app.service <<EOF
+[Unit]
+Description=Stratos Cloud application
+After=network-online.target
+
+[Service]
+WorkingDirectory=/opt/stratos-app
+Environment=APP_ENV=${environment}
+Environment=APP_PORT=${app_port}
+Environment=REDIS_HOST=${redis_host}
+Environment=DB_SECRET_ID=${db_secret_id}
+ExecStart=/usr/bin/python3.11 -m gunicorn --workers 4 --threads 2 --bind 0.0.0.0:${app_port} app.main:app
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable --now stratos-app
+
+# --- CloudWatch agent: memory + disk (not collected by default) --------------
+cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json <<'EOF'
+{
+  "metrics": {
+    "namespace": "Stratos/EC2",
+    "append_dimensions": { "AutoScalingGroupName": "$${aws:AutoScalingGroupName}" },
+    "metrics_collected": {
+      "mem":  { "measurement": ["mem_used_percent"] },
+      "disk": { "measurement": ["used_percent"], "resources": ["/"] }
+    }
+  },
+  "logs": {
+    "logs_collected": {
+      "files": {
+        "collect_list": [
+          { "file_path": "/var/log/messages", "log_group_name": "/stratos/${environment}/system" }
+        ]
+      }
+    }
+  }
+}
+EOF
+/opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s \
+  -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json

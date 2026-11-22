@@ -1,0 +1,6 @@
+onprem_public_ips = {
+  primary = "203.0.113.10"
+  backup  = "198.51.100.20"
+}
+
+certificate_arn = "arn:aws:acm:ca-west-1:111122223333:certificate/REPLACE-ME"

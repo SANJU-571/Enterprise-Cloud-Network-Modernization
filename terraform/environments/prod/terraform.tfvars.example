@@ -1,0 +1,19 @@
+# Copy to terraform.tfvars and fill in. terraform.tfvars is git-ignored.
+
+onprem_public_ips = {
+  primary = "203.0.113.10"  # ISP 1 - Cisco ISR WAN
+  backup  = "198.51.100.20" # ISP 2 - FortiGate WAN2
+}
+
+certificate_arn = "arn:aws:acm:ca-central-1:111122223333:certificate/REPLACE-ME"
+
+app_fqdn       = "portal.example.com"
+hosted_zone_id = "Z0000000000000000000"
+
+# From `terraform output` in environments/dr
+dr_alb_dns_name = ""
+dr_alb_zone_id  = ""
+
+cloudtrail_bucket = "org-log-archive-cloudtrail"
+
+alert_emails = ["noc@example.com"]

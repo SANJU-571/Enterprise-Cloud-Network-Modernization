@@ -1,0 +1,74 @@
+{
+  "widgets": [
+    {
+      "type": "text", "x": 0, "y": 0, "width": 24, "height": 2,
+      "properties": {
+        "markdown": "# Stratos Cloud - SLA Dashboard\nTargets: **uptime >= 99.5%** | **p95 response <= 200 ms** | **LB capacity <= 85%** | **errors <= 10/day**"
+      }
+    },
+    {
+      "type": "metric", "x": 0, "y": 2, "width": 12, "height": 6,
+      "properties": {
+        "title": "Target response time (p50 / p95 / p99)",
+        "region": "${region}",
+        "view": "timeSeries",
+        "metrics": [
+          ["AWS/ApplicationELB", "TargetResponseTime", "LoadBalancer", "${alb}", {"stat": "p50"}],
+          ["...", {"stat": "p95"}],
+          ["...", {"stat": "p99"}]
+        ],
+        "annotations": { "horizontal": [{ "label": "SLA 200 ms", "value": ${latency_line} }] },
+        "period": 60
+      }
+    },
+    {
+      "type": "metric", "x": 12, "y": 2, "width": 12, "height": 6,
+      "properties": {
+        "title": "Requests per target vs 85% capacity line",
+        "region": "${region}",
+        "view": "timeSeries",
+        "metrics": [
+          ["AWS/ApplicationELB", "RequestCountPerTarget", "LoadBalancer", "${alb}", "TargetGroup", "${tg}", {"stat": "Sum"}]
+        ],
+        "annotations": { "horizontal": [{ "label": "85% capacity", "value": ${design_rpt * 0.85} }] },
+        "period": 60
+      }
+    },
+    {
+      "type": "metric", "x": 0, "y": 8, "width": 8, "height": 6,
+      "properties": {
+        "title": "Healthy vs unhealthy targets",
+        "region": "${region}",
+        "metrics": [
+          ["AWS/ApplicationELB", "HealthyHostCount", "LoadBalancer", "${alb}", "TargetGroup", "${tg}"],
+          [".", "UnHealthyHostCount", ".", ".", ".", "."]
+        ],
+        "period": 60, "stat": "Minimum"
+      }
+    },
+    {
+      "type": "metric", "x": 8, "y": 8, "width": 8, "height": 6,
+      "properties": {
+        "title": "5xx errors (daily budget = 10)",
+        "region": "${region}",
+        "metrics": [
+          ["AWS/ApplicationELB", "HTTPCode_Target_5XX_Count", "LoadBalancer", "${alb}"],
+          [".", "HTTPCode_ELB_5XX_Count", ".", "."]
+        ],
+        "period": 3600, "stat": "Sum"
+      }
+    },
+    {
+      "type": "metric", "x": 16, "y": 8, "width": 8, "height": 6,
+      "properties": {
+        "title": "RDS CPU / Redis hit rate",
+        "region": "${region}",
+        "metrics": [
+          ["AWS/RDS", "CPUUtilization", "DBInstanceIdentifier", "${db}"],
+          ["AWS/ElastiCache", "CacheHitRate", "ReplicationGroupId", "${redis}", {"yAxis": "right"}]
+        ],
+        "period": 300, "stat": "Average"
+      }
+    }
+  ]
+}
