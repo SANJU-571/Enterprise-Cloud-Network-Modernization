@@ -1,0 +1,114 @@
+# Prometheus - on-prem monitoring server (10.10.100.40)
+# Scrapes on-prem + AWS (over VPN) targets. Long-term metrics in AWS are
+# handled by CloudWatch; this stack gives the NOC a single pane for both.
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    site: hq-toronto
+
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["10.10.100.40:9093"]
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # On-prem Linux servers (AD, NAS, LBs, app servers)
+  - job_name: node
+    static_configs:
+      - targets:
+          - 10.10.100.8:9100   # LB-01
+          - 10.10.100.9:9100   # LB-02
+          - 10.10.100.61:9100
+          - 10.10.100.62:9100
+          - 10.10.100.63:9100
+          - 10.10.100.71:9100
+          - 10.10.100.72:9100
+          - 10.10.100.73:9100
+        labels:
+          env: onprem
+
+  # AWS app tier discovered through EC2 SD, reached over the site-to-site VPN
+  - job_name: aws-node
+    ec2_sd_configs:
+      - region: ca-central-1
+        port: 9100
+        filters:
+          - name: tag:Project
+            values: ["enterprise-cloud-network-modernization"]
+          - name: instance-state-name
+            values: ["running"]
+    relabel_configs:
+      - source_labels: [__meta_ec2_private_ip]
+        target_label: __address__
+        replacement: "$1:9100"
+      - source_labels: [__meta_ec2_tag_Environment]
+        target_label: env
+      - source_labels: [__meta_ec2_availability_zone]
+        target_label: az
+
+  # HAProxy built-in exporter
+  - job_name: haproxy
+    static_configs:
+      - targets: ["10.10.100.10:8404"]
+
+  # Network devices via SNMPv3
+  - job_name: snmp
+    static_configs:
+      - targets:
+          - 10.10.99.2   # CORE-SW1
+          - 10.10.99.3   # CORE-SW2
+          - 10.10.99.21  # ACC-SALES-01
+    metrics_path: /snmp
+    params:
+      module: [if_mib]
+      auth: [stratos_v3]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: 10.10.100.40:9116
+
+  # Availability + latency probes (uptime SLA and inter-region latency SLA)
+  - job_name: blackbox-http
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          - https://portal.example.com/healthz
+          - https://portal-dr.example.com/healthz
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: 10.10.100.40:9115
+
+  - job_name: blackbox-icmp-interregion
+    metrics_path: /probe
+    params:
+      module: [icmp]
+    static_configs:
+      - targets: ["10.20.64.10"]   # prod app subnet canary (ca-central-1)
+        labels: { path: onprem-to-primary }
+      - targets: ["10.30.64.10"]   # DR app subnet canary (ca-west-1)
+        labels: { path: onprem-to-secondary }
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: 10.10.100.40:9115

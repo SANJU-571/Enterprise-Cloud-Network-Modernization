@@ -1,0 +1,57 @@
+# On-prem monitoring stack (runs on MON-01, 10.10.100.40)
+# docker compose -f monitoring/docker-compose.yml up -d
+
+services:
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=45d
+      - --web.enable-lifecycle
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro
+      - prometheus-data:/prometheus
+    ports: ["9090:9090"]
+    restart: unless-stopped
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    volumes:
+      - ./prometheus/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    ports: ["9093:9093"]
+    restart: unless-stopped
+
+  blackbox:
+    image: prom/blackbox-exporter:v0.25.0
+    volumes:
+      - ./prometheus/blackbox.yml:/etc/blackbox_exporter/config.yml:ro
+    cap_add: [NET_RAW]
+    ports: ["9115:9115"]
+    restart: unless-stopped
+
+  snmp-exporter:
+    image: prom/snmp-exporter:v0.26.0
+    ports: ["9116:9116"]
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    secrets: [grafana_admin]
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/sla-overview.json:/var/lib/grafana/dashboards/sla-overview.json:ro
+      - grafana-data:/var/lib/grafana
+    ports: ["3000:3000"]
+    restart: unless-stopped
+
+secrets:
+  grafana_admin:
+    file: ./secrets/grafana_admin.txt
+
+volumes:
+  prometheus-data:
+  grafana-data:
